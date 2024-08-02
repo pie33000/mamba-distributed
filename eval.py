@@ -11,7 +11,7 @@ from tqdm import tqdm
 from model import LMHeadModel
 
 DEVICE = "cuda"
-CHECKPOINT_PATH = "log/model_mamba_01000.pt"
+CHECKPOINT_PATH = "log/model_mamba_03000.pt"
 DATA_CACHE_DIR = os.path.join(os.path.dirname(__file__), "hellaswag")
 HELLASWAG_DATA = {
     "train": "https://raw.githubusercontent.com/rowanz/hellaswag/master/data/hellaswag_train.jsonl",
@@ -25,7 +25,7 @@ enc = tiktoken.get_encoding("gpt2")
 def load_model_from_checkpoint(
     checkpoint_path: str = CHECKPOINT_PATH, device: str = DEVICE
 ) -> LMHeadModel:
-    model_state_dict = torch.load(checkpoint_path)["state_dict"]
+    model_state_dict = torch.load(checkpoint_path)["model"]
 
     config = MambaConfig(d_model=768, vocab_size=50304)
 
@@ -131,7 +131,7 @@ def evaluate(model_type, device: str = DEVICE):
         mask = mask.to(device)
 
         # get the logits
-        logits = model(tokens)
+        logits, _ = model(tokens)
         # evaluate the autoregressive loss at all positions
         shift_logits = (logits[..., :-1, :]).contiguous()
         shift_tokens = (tokens[..., 1:]).contiguous()
@@ -170,6 +170,10 @@ def evaluate(model_type, device: str = DEVICE):
             for i, end in enumerate(example["endings"]):
                 print(f"{i} (loss: {avg_loss[i].item():.4f}) {end}")
             print(f"predicted: {pred_norm}, actual: {label}")
+        if num_total == 2000:
+            with open("log/hellaswag_eval.txt", "a") as file:
+                size = file.write(f"{num_total} {num_correct_norm}/{num_total} {num_correct_norm/num_total:.4f}")
+            break
 
 
 if __name__ == "__main__":
