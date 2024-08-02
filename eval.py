@@ -1,13 +1,12 @@
 import json
 import os
 
-import pandas as pd
 import requests
 import tiktoken
 import torch
 import torch.nn.functional as F
-import tqdm
 from mamba_ssm.models.config_mamba import MambaConfig
+from tqdm import tqdm
 
 from model import LMHeadModel
 
@@ -122,7 +121,6 @@ def evaluate(model_type, device: str = DEVICE):
     torch.set_float32_matmul_precision("high")  # use tf32
     model = load_model_from_checkpoint()
     model.to(device)
-    # model = torch.compile(model) # optionally torch compile the model
 
     num_correct_norm = 0
     num_correct = 0
