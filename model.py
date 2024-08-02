@@ -26,7 +26,7 @@ class LMHeadModel(MambaLMHeadModel):
         loss = None
         if targets is not None:
             loss = F.cross_entropy(logits.logits.view(-1, logits.logits.size(-1)), targets.view(-1))
-        return logits, loss
+        return logits.logits, loss
 
     def configure_optimizers(self, weight_decay, learning_rate, device_type):
             # start with all of the candidate parameters (that require grad)
@@ -108,7 +108,7 @@ class DataLoaderLite:
 # simple launch:
 # python train_gpt2.py
 # DDP launch for e.g. 8 GPUs:
-# torchrun --standalone --nproc_per_node=8 train_gpt2.py
+# torchrun --standalone --nproc_per_node=8 model.py
 
 # run the training loop
 
@@ -147,8 +147,8 @@ if torch.cuda.is_available():
 enc = tiktoken.get_encoding("gpt2")
 
 total_batch_size = 524288 # 2**19, ~0.5M, in number of tokens
-B = 8 # micro batch size
-T = 256 # sequence length
+B = 32 # micro batch size
+T = 1024 # sequence length
 
 assert total_batch_size % (B * T * ddp_world_size) == 0, "make sure total_batch_size is divisible by B * T * ddp_world_size"
 grad_accum_steps = total_batch_size // (B * T * ddp_world_size)
@@ -232,7 +232,7 @@ for step in range(max_steps):
             print(f"validation loss: {val_loss_accum.item():.4f}")
             with open(log_file, "a") as f:
                 f.write(f"{step} val {val_loss_accum.item():.4f}\n")
-            if step > 0 and (step % 5000 == 0 or last_step):
+            if step > 0 and (step % 1000 == 0 or last_step):
                 # optionally write model checkpoints
                 checkpoint_path = os.path.join(log_dir, f"model_{step:05d}.pt")
                 checkpoint = {
