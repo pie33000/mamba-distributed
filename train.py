@@ -17,7 +17,7 @@ device = "cuda"
 
 # -----------------------------------------------------------------------------
 # DDP launch for e.g. 8 GPUs:
-# torchrun --standalone --nproc_per_node=8 model.py
+# torchrun --standalone --nproc_per_node=8 train.py
 
 # set up DDP (distributed data parallel).
 # torchrun command sets the env variables RANK, LOCAL_RANK, and WORLD_SIZE
