@@ -8,12 +8,18 @@ from mamba_ssm.models.config_mamba import MambaConfig
 from mamba_ssm.models.mixer_seq_simple import MambaLMHeadModel
 from transformers.utils import CONFIG_NAME, WEIGHTS_NAME
 from transformers.utils.hub import cached_file
+from transformers import AutoTokenizer
+
 
 
 class LMHeadModel(MambaLMHeadModel):
-    def __init__(self, config, device):
+    def __init__(self, config, device, enc = None):
         self.device = device
-        self.enc = tiktoken.get_encoding("gpt2")
+        self.type = type
+        if enc is None:
+            self.enc = tiktoken.get_encoding("gpt2")
+        else:
+            self.enc = enc
         super().__init__(config, device=device)
 
     def forward(
@@ -41,7 +47,8 @@ class LMHeadModel(MambaLMHeadModel):
         return logits.logits, loss
 
     @torch.no_grad()
-    def generate(self, xgen, top_k=50, max_length=32, seed=42) -> torch.tensor:
+    def generate(self, text: str, top_k=50, max_length=32, seed=42) -> torch.tensor:
+        xgen = torch.tensor([self.enc.encode(text)]).to(self.device)
         for _ in range(max_length):
             # Get model outputs and extract logits
             logits, _ = self(xgen)
@@ -56,11 +63,15 @@ class LMHeadModel(MambaLMHeadModel):
             xgen = torch.cat((xgen, next_token_id_tensor), dim=1)
 
             # Stop if the model generates the end-of-sequence token
-            if next_token_id == self.enc.eot_token:
+            EOT_TOKEN = self.enc.eot_token if hasattr(self.enc, "eot_token") else self.enc.eos_token
+            if next_token_id == EOT_TOKEN:
                 break
 
         # Decode the generated sequence
-        generated_text = self.enc.decode(xgen[0], skip_special_tokens=True)
+        print(xgen.shape)
+        ids = list(xgen[0].cpu().numpy())
+        print(ids)
+        generated_text = self.enc.decode(ids)
         return generated_text
 
     def top_k_sampling(self, logits: torch.tensor, k: int = 50, seed: int = 42) -> int:
@@ -96,11 +107,9 @@ class LMHeadModel(MambaLMHeadModel):
         state_dict = torch.load(
             resolved_archive_file, weights_only=True, map_location="cpu", mmap=True
         )
-
-        config = MambaConfig(
-            d_model=config_data["d_model"], n_layers=config_data["n_layers"]
-        )
-        model = cls(config, device=device)
+        tokenizer = AutoTokenizer.from_pretrained("state-spaces/mamba-370m-hf")
+        config = MambaConfig(**config_data)
+        model = cls(config, device=device, enc=tokenizer)
 
         model.load_state_dict(state_dict)
 

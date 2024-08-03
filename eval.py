@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 from mamba_ssm.models.config_mamba import MambaConfig
 from tqdm import tqdm
-
+from enum import Enum
 from model import LMHeadModel
 
 DEVICE = "cuda"
@@ -18,6 +18,10 @@ HELLASWAG_DATA = {
     "val": "https://raw.githubusercontent.com/rowanz/hellaswag/master/data/hellaswag_val.jsonl",
     "test": "https://raw.githubusercontent.com/rowanz/hellaswag/master/data/hellaswag_test.jsonl",
 }
+
+class ModelType(Enum, str):
+    CUSTOM = "custom"
+    HF = "hugging_face"
 
 enc = tiktoken.get_encoding("gpt2")
 
@@ -117,9 +121,12 @@ def iterate_examples(split):
 
 
 @torch.no_grad()
-def evaluate(model_type, device: str = DEVICE):
+def evaluate(model_type, hf_model_name: str, device: str = DEVICE):
     torch.set_float32_matmul_precision("high")  # use tf32
-    model = load_model_from_checkpoint()
+    if model_type == ModelType.CUSTOM:
+       model = load_model_from_checkpoint()
+    else:
+        from model import LMHeadModel
     model.to(device)
 
     num_correct_norm = 0
@@ -181,10 +188,13 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-m", "--model_type", type=str, default="gpt2", help="the model type to use"
+        "-m", "--model_type", type=str, default="custom", help="use custom or hugging_face"
+    )
+    parser.add_argument(
+        "-v", "--hf_model_name", type=str, default="state-spaces/mamba2-370m", help="the hugging face model name"
     )
     parser.add_argument(
         "-d", "--device", type=str, default="cuda", help="the device to use"
     )
     args = parser.parse_args()
-    evaluate(args.model_type, args.device)
+    evaluate(args.model_type, args.hf_model_name, args.device)
